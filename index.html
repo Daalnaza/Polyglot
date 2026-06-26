@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AI Polyglot Companion - Natural Learning</title>
+    <title>AI Polyglot Coach - Conversational Companion</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,11 +20,9 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        .chat-view {
-            height: calc(100dvh - 180px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-        }
+        /* Margen de seguridad inferior para celulares modernos (evita la barra de inicio/gestos) */
         .safe-bottom-bar {
-            padding-bottom: calc(16px + env(safe-area-inset-bottom, 12px));
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 8px));
         }
     </style>
 </head>
@@ -36,10 +34,10 @@
             <span class="text-2xl">🤝</span>
             <div>
                 <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
-                    Polyglot Companion
+                    Polyglot Coach
                     <span id="relationshipBadge" class="text-[10px] bg-indigo-500 text-white px-2 py-0.5 rounded-full">Amigo ☕</span>
                 </h1>
-                <p class="text-[11px] text-slate-400">Tu compañero conversacional de inmersión</p>
+                <p class="text-[11px] text-slate-400">Tu compañero de inmersión natural</p>
             </div>
         </div>
         
@@ -54,6 +52,29 @@
             </button>
         </div>
     </header>
+
+    <!-- TOAST NOTIFICATION (Reemplazo elegante de alert) -->
+    <div id="toastNotification" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-slate-800 border border-slate-700 px-4 py-3 rounded-xl shadow-2xl z-50 text-xs flex items-center gap-2 transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none">
+        <span id="toastIcon">💡</span>
+        <span id="toastMessage" class="font-medium text-slate-200">Notificación</span>
+    </div>
+
+    <!-- MODAL DE CONFIRMACIÓN DE RESETEO (Reemplazo elegante de confirm) -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center gap-3 text-rose-400">
+                <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+                <h3 class="font-extrabold text-white text-sm">Reiniciar relación</h3>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+                ¿Estás seguro de que deseas reiniciar la relación con tu compañero? Esto borrará de forma permanente todo el historial de chat y la memoria aprendida sobre ti.
+            </p>
+            <div class="flex justify-end gap-2 text-xs">
+                <button onclick="closeConfirmModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold transition">Cancelar</button>
+                <button onclick="executeResetConversation()" class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-lg font-bold transition">Sí, borrar todo</button>
+            </div>
+        </div>
+    </div>
 
     <!-- CONTENEDOR PRINCIPAL: CHAT + PANELES DESLIZANTES -->
     <div class="flex-1 flex overflow-hidden relative">
@@ -145,37 +166,38 @@
             </div>
             
             <!-- RESET COMPLETO -->
-            <button onclick="resetConversation()" class="w-full bg-rose-950/40 border border-rose-500/30 hover:bg-rose-900/40 text-rose-300 text-[11px] py-2 px-3 rounded-lg transition font-semibold">
+            <button onclick="openConfirmModal()" class="w-full bg-rose-950/40 border border-rose-500/30 hover:bg-rose-900/40 text-rose-300 text-[11px] py-2 px-3 rounded-lg transition font-semibold">
                 <i class="fa-solid fa-trash-can mr-1"></i> Reiniciar Relación (Olvidar Todo)
             </button>
         </aside>
 
-        <!-- ÁREA CENTRAL DE CHAT -->
-        <main class="flex-grow flex flex-col h-full bg-slate-900 relative">
+        <!-- ÁREA CENTRAL DE CHAT (FLEX vertical para evitar superposiciones de diseño en móviles) -->
+        <main class="flex-grow flex flex-col h-full bg-slate-900 overflow-hidden relative">
             
             <!-- CONTENEDOR DE CHAT CON SCROLL -->
-            <div id="chatWindow" class="chat-view flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+            <div id="chatWindow" class="flex-grow overflow-y-auto p-4 space-y-4 no-scrollbar">
                 <!-- Bienvenida Dinámica cargada por JS -->
             </div>
 
-            <!-- ÁREA DE SUGERENCIAS FLOTANTES (CHIPS INTERACTIVOS) -->
-            <div id="suggestionsWrapper" class="hidden px-4 max-w-3xl mx-auto w-full transition-all duration-300 animate-fade-in shrink-0">
-                <div class="bg-slate-800/80 border border-slate-700/50 rounded-xl p-2.5 shadow-xl">
-                    <p class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> Sugerencias de respuesta (Toca una para usarla):
-                    </p>
-                    <div id="suggestionsContainer" class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                        <!-- Chips insertados dinámicamente -->
+            <!-- BARRA DE ENTRADA Y COMPONENTES INFERIORES UNIFICADOS EN UN CONTENEDOR DE FLUJO -->
+            <div class="bg-gradient-to-t from-slate-950 via-slate-900/98 to-slate-900/40 px-4 pt-3 safe-bottom-bar shrink-0 flex flex-col gap-2.5 z-10">
+                
+                <!-- ÁREA DE SUGERENCIAS FLOTANTES (CHIPS INTERACTIVOS - SITUADA DENTRO DEL FLUJO PRINCIPAL) -->
+                <div id="suggestionsWrapper" class="hidden w-full max-w-3xl mx-auto transition-all duration-300 animate-fadeIn">
+                    <div class="bg-slate-800/95 border border-slate-700 rounded-xl p-2.5 shadow-2xl backdrop-blur-md">
+                        <p class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Sugerencias de respuesta (Toca una para usarla):
+                        </p>
+                        <div id="suggestionsContainer" class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                            <!-- Chips insertados dinámicamente -->
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- BARRA DE ENTRADA INFERIOR (SUPER OPTIMIZADA PARA MÓVILES) -->
-            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-950 via-slate-900/95 to-transparent px-4 safe-bottom-bar pt-4 z-10 shrink-0">
-                <div class="max-w-3xl mx-auto flex items-center gap-2 bg-slate-800/95 border border-slate-700/80 rounded-full p-2 shadow-2xl backdrop-blur-md">
-                    
+                <!-- CONTROL ROW (Botonera y Entrada de Texto Unificada) -->
+                <div class="max-w-3xl w-full mx-auto flex items-center gap-2 bg-slate-800/95 border border-slate-700 rounded-full p-1.5 shadow-2xl backdrop-blur-md">
                     <!-- Botón del Micrófono -->
-                    <button id="micBtn" onclick="toggleMic()" class="bg-indigo-600 hover:bg-indigo-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-lg shadow-lg transition active:scale-90 shrink-0 focus:outline-none" title="Grabar Voz">
+                    <button id="micBtn" onclick="toggleMic()" class="bg-indigo-600 hover:bg-indigo-500 text-white rounded-full w-11 h-11 flex items-center justify-center text-base shadow-lg transition active:scale-90 shrink-0 focus:outline-none" title="Grabar Voz">
                         <i id="micIcon" class="fa-solid fa-microphone"></i>
                     </button>
                     
@@ -183,12 +205,12 @@
                     <input type="text" id="textInput" placeholder="Escribe o habla con tu compañero..." class="flex-grow bg-transparent text-sm text-white px-3 focus:outline-none placeholder-slate-400 min-w-0" onkeypress="if(event.key === 'Enter') sendTextMessage()">
                     
                     <!-- Botón de Sugerencias Mágicas (Bombilla) -->
-                    <button id="suggestBtn" onclick="getConversationalSuggestions()" class="bg-amber-600/20 text-amber-400 hover:bg-amber-600 hover:text-white rounded-full w-10 h-10 flex items-center justify-center text-base transition shrink-0 active:scale-95 focus:outline-none" title="Pedir sugerencias de respuesta">
+                    <button id="suggestBtn" onclick="getConversationalSuggestions()" class="bg-amber-600/20 text-amber-400 hover:bg-amber-600 hover:text-white rounded-full w-9 h-9 flex items-center justify-center text-sm transition shrink-0 active:scale-95 focus:outline-none" title="Pedir sugerencias de respuesta">
                         <i class="fa-solid fa-lightbulb"></i>
                     </button>
 
                     <!-- Botón Enviar -->
-                    <button onclick="sendTextMessage()" class="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-full w-10 h-10 flex items-center justify-center text-sm transition shrink-0 active:scale-95 focus:outline-none" title="Enviar Mensaje">
+                    <button onclick="sendTextMessage()" class="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-full w-9 h-9 flex items-center justify-center text-xs transition shrink-0 active:scale-95 focus:outline-none" title="Enviar Mensaje">
                         <i class="fa-solid fa-paper-plane"></i>
                     </button>
                 </div>
@@ -299,13 +321,13 @@
             roommate: { badge: 'Roommate 🏠', name: 'Jordan', age: '25', profession: 'Barista', interests: 'video games, indie bands, sports, and coffee', tone: 'very casual, energetic, helpful, roommate dynamic', greeting: {
                 'en-US': "Yo! Welcome back. I was thinking of ordering some food later, what are you up to?",
                 'fr-FR': "Salut ! Content de te voir. Je pensais commander à manger plus tard, tu fais quoi ?",
-                'it-IT': "Ehi! Bentornato. Pensavo di ordinare del cibo più tardi, tu che fai?",
-                'pt-PT': "Ei! Bem-vindo de volta. Estava a pensar encomendar comida mais tarde, o que andas a fazer?"
+                'it-IT': "Ehi! Bentornato. Pensavo di ordinare del cibo più tardi, tu que fai?",
+                'pt-PT': "Ei! Bem-vindo de volta. Estava a pensar encomendar comida mais tarde, o que andas a hacer?"
             }},
             host_family: { badge: 'Host Family 🏡', name: 'Martha', age: '47', profession: 'High School Teacher', interests: 'gardening, volunteering, family dinners, crafting', tone: 'nurturing, deeply encouraging, safe home environment', greeting: {
                 'en-US': "Hello dear! Welcome home. I hope you had a lovely day. Would you like a warm cup of tea?",
                 'fr-FR': "Bonjour cher ami ! Bienvenue à la maison. J'espère que tu as passé une bonne journée. Tu veux un thé ?",
-                'it-IT': "Ciao caro! Benvenuto a casa. Spero che tu abbia passato una bella giornata. Ti va una tazza di tè?",
+                'it-IT': "Ciao caro! Benvenuto a casa. Spero que tu abbia passato una bella giornata. Ti va una tazza di tè?",
                 'pt-PT': "Olá querido/a! Bem-vindo a casa. Espero que tenhas tido um dia ótimo. Queres uma chávena de chá quente?"
             }},
             mentor: { badge: 'Mentor 🎓', name: 'Professor Arthur', age: '54', profession: 'Retired University Professor', interests: 'philosophy, history, academic research, classical music', tone: 'wise, patient, inspiring, uses metaphors to motivate', greeting: {
@@ -322,6 +344,36 @@
             'it-IT': { name: 'Italiano', aiInstruct: 'Italian' },
             'pt-PT': { name: 'Portugués', aiInstruct: 'Portuguese' }
         };
+
+        // NOTIFICACIONES TOAST MEJORADAS (Sin alert estáticos)
+        function showToast(message, icon = '💡') {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastIcon').textContent = icon;
+            document.getElementById('toastMessage').textContent = message;
+            
+            toast.className = "fixed top-4 left-1/2 transform -translate-x-1/2 bg-slate-800 border border-slate-700 px-4 py-3 rounded-xl shadow-2xl z-50 text-xs flex items-center gap-2 transition-all duration-300 opacity-100 translate-y-0";
+            
+            setTimeout(() => {
+                toast.className = "fixed top-4 left-1/2 transform -translate-x-1/2 bg-slate-800 border border-slate-700 px-4 py-3 rounded-xl shadow-2xl z-50 text-xs flex items-center gap-2 transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none";
+            }, 3000);
+        }
+
+        // MODAL DE CONFIRMACIÓN MEJORADO (Sin confirm estáticos)
+        function openConfirmModal() {
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+        }
+
+        function executeResetConversation() {
+            closeConfirmModal();
+            localStorage.removeItem('companion_memory');
+            document.getElementById('companionMemory').value = '';
+            showToast("Relación reiniciada. Se han borrado todos los recuerdos.", "🧹");
+            updateRelationship();
+        }
 
         function updateRelationship() {
             const rel = document.getElementById('relationship').value;
@@ -365,6 +417,7 @@
         function saveManualMemory() {
             const text = document.getElementById('companionMemory').value;
             localStorage.setItem('companion_memory', text);
+            showToast("Memoria actualizada correctamente.", "🧠");
         }
 
         function updateSpeedLabel(val) {
@@ -375,15 +428,7 @@
             const val = document.getElementById('apiKey').value.trim();
             if (val) {
                 localStorage.setItem('groq_api_key', val);
-                alert("API Key de Groq guardada con éxito.");
-            }
-        }
-
-        function resetConversation() {
-            if (confirm("¿Estás seguro de que deseas reiniciar la relación? Esto borrará la memoria aprendida y el historial.")) {
-                localStorage.removeItem('companion_memory');
-                document.getElementById('companionMemory').value = '';
-                updateRelationship();
+                showToast("Clave API de Groq guardada con éxito.", "🔑");
             }
         }
 
@@ -422,7 +467,7 @@
         function toggleMic() {
             const rec = getSpeechRecognition();
             if (!rec) {
-                alert("Reconocimiento de voz no soportado en este dispositivo.");
+                showToast("Reconocimiento de voz no soportado en este dispositivo.", "⚠️");
                 return;
             }
             if (isRecording) {
@@ -446,7 +491,7 @@
         function appendMessage(sender, text) {
             const chatWindow = document.getElementById('chatWindow');
             const wrapper = document.createElement('div');
-            wrapper.className = sender === 'user' ? "flex justify-end w-full" : "flex justify-start w-full animate-fade-in";
+            wrapper.className = sender === 'user' ? "flex justify-end w-full animate-fadeIn" : "flex justify-start w-full animate-fadeIn";
 
             const msgDiv = document.createElement('div');
             msgDiv.className = sender === 'user' 
@@ -471,6 +516,7 @@
             msgDiv.addEventListener('mouseup', handleTextSelection);
             msgDiv.addEventListener('touchend', () => setTimeout(handleTextSelection, 200));
 
+            // Desplazar automáticamente cuidando la nueva barra flexible
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
@@ -480,9 +526,7 @@
         }
 
         function cleanTextForSpeech(text) {
-            // Eliminar corchetes de control interno
             let result = text.replace(/\[MemoryUpdated:.*?\]/g, '');
-            // Quitar emojis
             result = result.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2300}-\u{23FF}]/gu, '');
             return result.trim();
         }
@@ -512,7 +556,7 @@
             const apiKey = localStorage.getItem('groq_api_key');
 
             if (!apiKey) {
-                alert("Por favor, guarda tu Groq API Key.");
+                showToast("Por favor, introduce tu Groq API Key en los ajustes.", "🔑");
                 return;
             }
             if (!text) return;
@@ -584,6 +628,7 @@
                         }
                         document.getElementById('companionMemory').value = updatedMemory;
                         localStorage.setItem('companion_memory', updatedMemory);
+                        showToast(`He recordado algo sobre ti: ${newFact}`, "🧠");
                         
                         // Quitar el tag de la respuesta visible
                         aiResponse = aiResponse.replace(/\[MemoryUpdated:.*?\]/g, '').trim();
@@ -605,7 +650,7 @@
             const suggestBtn = document.getElementById('suggestBtn');
 
             if (!apiKey) {
-                alert("Por favor, introduce tu API Key para poder generar sugerencias.");
+                showToast("Por favor, introduce tu API Key para generar sugerencias.", "🔑");
                 return;
             }
 
@@ -665,6 +710,7 @@
 
             } catch (error) {
                 console.error("Error generando sugerencias: ", error);
+                showToast("No se pudieron obtener sugerencias en este momento.", "⚠️");
             } finally {
                 suggestBtn.innerHTML = `<i class="fa-solid fa-lightbulb"></i>`;
                 suggestBtn.disabled = false;
@@ -674,14 +720,14 @@
         function renderSuggestions(suggestions) {
             const container = document.getElementById('suggestionsContainer');
             const wrapper = document.getElementById('suggestionsWrapper');
+            const chatWindow = document.getElementById('chatWindow');
             container.innerHTML = '';
 
             suggestions.forEach(item => {
                 const chip = document.createElement('button');
-                // Aseguramos que las comillas no rompan el atributo onclick
                 const cleanText = item.text.replace(/"/g, '&quot;');
                 
-                chip.className = "bg-slate-900 border border-slate-700/60 hover:border-amber-400 text-slate-100 px-3 py-1.5 rounded-lg text-xs transition duration-150 active:scale-95 text-left flex flex-col gap-0.5 shrink-0 max-w-[240px]";
+                chip.className = "bg-slate-900 border border-slate-700 hover:border-amber-400 text-slate-100 px-3 py-1.5 rounded-lg text-xs transition duration-150 active:scale-95 text-left flex flex-col gap-0.5 shrink-0 max-w-[240px]";
                 chip.innerHTML = `
                     <span class="font-medium text-white block truncate w-full">${item.text}</span>
                     <span class="text-[9px] text-slate-400 italic block truncate w-full">${item.translation}</span>
@@ -693,11 +739,16 @@
             });
 
             wrapper.classList.remove('hidden');
+            // Hacer autoscroll al abrir sugerencias para mantener visible el último mensaje de chat
+            setTimeout(() => {
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }, 100);
         }
 
         function useSuggestion(text) {
             document.getElementById('textInput').value = text;
             document.getElementById('textInput').focus();
+            hideSuggestions();
         }
 
         function hideSuggestions() {
